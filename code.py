@@ -14,6 +14,12 @@ Read csv files
 bitcoin = pd.read_csv("datasets/bitcoin_prices.csv", sep=',')
 gold = pd.read_csv("datasets/gold_prices.csv", sep=',')
 
+full_file = pd.read_csv("datasets/djia30_btc_gold.csv", sep=',')
+
+# Remove the weekends since stock market is closed so we wont have any values
+df = full_file.dropna()
+print(df['AMZN'])
+
  #%%
 """
 Test plot for bitcoin and gold open prices over time
@@ -40,7 +46,7 @@ gold_open_time = np.arange(len(gold_open))
 # %%
 """
 Fitting LRM for n features and m observations
-Y = beta * X
+Y = beta * Xf
 """
 
 n = 1
