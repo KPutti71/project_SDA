@@ -94,6 +94,7 @@ Check slopes of all prices and volumes over the time
 all_slopes = []
 # Skip first because this is the date column
 for col in columns[1:]:
+    # Get data of all columns
     data_Y = df[col].astype('float')
     data_x = [np.arange(len(data_Y))]
     param = LRM_RSS(data_x, data_Y)
@@ -102,39 +103,53 @@ for col in columns[1:]:
 
 # %%
 """
-Bootstrap over time series and fitting LRM to make confidence interval for our test
+Bootstrap over time series and make confidence interval for our test
 """
 
 
-def bootstrap(Y):
-    n = len(Y)
-    boot_Y = np.random.choice(Y, size=n, replace=True)
-    return boot_Y
+def bootstrap(Y, n=1000):
+    """
+    Does n bootstraps over set Y where each bootstrap has the same length as Y
+    
+    :param Y: Data set for bootstrap
+    :param n: Amount of bootstraps
+    """
+    length = len(Y)
+    all_boot_Y = []
+    for i in range(n):
+        all_boot_Y.append(np.random.choice(Y, size=length, replace=True))
+    return all_boot_Y
 
 
-def CI(Y):
-    return [np.percentile(Y, 2.5), np.percentile(Y, 97.5)]
+def CI(set):
+    """
+    Gives the confidence interval of a set of test values
+    
+    :param set: A list of test values
+    """
+    return [np.percentile(set, 2.5), np.percentile(set, 97.5)]
 
 
-# for col in columns[1:]:
-#     Y = df[col].astype('float')
-#     booted_Y = bootstrap(Y)
-#     booted_x = [np.arange(len(booted_Y))]
+# %%
+"""
+Bootstrap for LRM stationarity testing
+"""
 
-#     boot_slope = LRM_RSS(booted_x, booted_Y)[1]
-#     print(boot_slope)
 
-boot_slopes = []
-for i in range(1000):
-    boot = bootstrap(Y)
-    booted_x = [np.arange(len(boot))]
-    boot_slope = LRM_RSS(booted_x, boot)[1]
-    boot_slopes.append(boot_slope)
+def bootstrap_stationarity(x, Y, n=1000):
+    boot_sets = bootstrap(Y)
+    boot_slopes = [LRM_RSS(x, boot)[1] for boot in boot_sets]
+    interval = CI(boot_slopes)
+    return boot_slopes, interval
 
-print(CI(boot_slopes))
 
-plt.hist(boot_slopes, 40)
+Y = AMZN_cls
+x = [AMZN_cls_time]
+
+boot_slopes, interval = bootstrap_stationarity(x, Y)
+print(interval)
+
+n, bins, patches = plt.hist(boot_slopes, 40)
+plt.vlines(interval[0], 0, max(n), 'r')
+plt.vlines(interval[1], 0, max(n), 'r')
 plt.show()
-
-# plt.plot(booted_x[0], booted_Y)
-# plt.show()
