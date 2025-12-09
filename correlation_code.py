@@ -1,7 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import scipy as sp
-import scipy.stats as st
 
 
 class PearsonCoefficient:
@@ -10,7 +7,7 @@ class PearsonCoefficient:
         self.stocknames = None
         self.dates      = []
 
-    def read_data(self, filename : str = 'stock_prices_log.csv'):
+    def read_data(self, filename : str = 'datasets/stock_prices_log.csv'):
         """
         Read our given csv file and collection group data
         
@@ -97,7 +94,7 @@ class PearsonCoefficient:
         
         return self.pearson_btc, self.pearson_gold
     
-    def calculate_pearsonr(self, filename : str = 'stock_prices_log.csv'):
+    def calculate_pearsonr(self, filename : str = 'datasets/stock_prices_log.csv'):
         """
         Combines our previous functions to calculate the pearson correlation coefficient of our dataset
         
@@ -154,7 +151,7 @@ class PearsonCoefficient:
                 self.corr_per_shift_btc[stock].append(btc_r)
                 self.corr_per_shift_gld[stock].append(gold_r)
     
-    def correlation_delay(self, filename : str = 'stock_prices_log.csv'):
+    def correlation_delay(self, filename : str = 'datasets/stock_prices_log.csv'):
         """
         Combines our previous functions to return the best correlation coefficient with it's corresponding shift
         
@@ -166,7 +163,7 @@ class PearsonCoefficient:
         self.corr_shifts()
         return self.corr_per_shift_btc, self.corr_per_shift_gld, self.best_corr_btc, self.best_corr_gold
 
-    def pearson_r_and_delays(self, filename : str = 'stock_prices_log.csv'):
+    def pearson_r_and_delays(self, filename : str = 'datasets/stock_prices_log.csv'):
         """
         Final function for a representation of the results
         
@@ -189,4 +186,4 @@ class PearsonCoefficient:
             print(f'Correlation delay between {stock} and bitcoin: {btc_delay}, (r={corr_shifts_btc[stock][btc_delay-1]})')
 
 pr = PearsonCoefficient()
-pr.pearson_r_and_delays('stock_prices_log.csv')
+pr.pearson_r_and_delays('datasets/stock_prices_log.csv')
