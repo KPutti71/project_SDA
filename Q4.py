@@ -4,8 +4,8 @@
 #     H1: Volume affects returns (beta =! 0)
 
 # Steps:
-# 1) loads dataset "djia30_btc_gold.csv"
-# 2) cleans the data (drops NaNs + removes metadata row)
+# 1) loads datasets ("stock_prices_raw.csv" and "stock_volumes_raw.csv")
+# 2) cleans the data (drops NaNs)
 # 4) matches price to volume for each stock (stock and stock.1)
 # 5) computes log returns
 # 6) runs the LRM 
@@ -16,26 +16,30 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
+#imported lrm function from the lrm_code.py
+from lrm_code import LRM_RSS          
+
 # ----------------------------------------------------------
 # 1. get and clean data
 
-df = pd.read_csv("datasets/djia30_btc_gold.csv")
+prices = pd.read_csv("datasets/stock_prices_raw.csv")
+volumes = pd.read_csv("datasets/stock_volumes_raw.csv")
 
-#drops weekends and missing values and metadata (rows/columns)
-df = df.dropna()
-df = df[df["Ticker"] != "Price"].copy()
-columns = df.columns.tolist()
+prices = prices.dropna()
+volumes = volumes.dropna()
+
+columns = prices.columns.tolist()
 
 # ----------------------------------------------------------
 # 2. match price and volums for each stock
 
 price_columns = [
     c for c in columns
-    if c != "Ticker" and not c.endswith(".1")
+    if c != "Date" and not c.endswith(".1")
 ]
 
 # all the volume columns have .1 (ex.stock.1)
-volume_columns = [c for c in columns if c.endswith(".1")]
+volume_columns = [c for c in volumes.columns if c.endswith(".1")]
 
 #matching the stocks by mapping together
 pairs = {}
@@ -49,42 +53,15 @@ print(pairs)
 print()
 
 # ----------------------------------------------------------
-# 3.define the regression LRM_RSS (taken from our lrm_code.py file)
-
-def LRM_RSS(x, Y):
-    """
-    Fit a Linear Regression Model (LRM) to the given observed data x and Y 
-    using the RSS method: Y = beta * X in matrix notation.
-    Returns the parameter beta as a vector of parameter values.
-    
-    :param x: nested list of feature arrays
-    :param Y: array-like of y values
-    """
-    # n is the number of features and m is the number of observations
-    # For all items in x we assume that they have the same dimension, which we ensured
-    # when removing NaN values from df.
-    n = len(x)
-    m = len(x[0])
-
-    # Design matrix X with a column of ones for the intercept
-    X = np.zeros((m, n + 1))
-    X[:, 0] = 1
-
-    # Loop over columns to fill in observed data x
-    for col in range(n):
-        X[:, col + 1] = x[col]
-
-    # Calculate the parameter vector beta using the closed-form OLS solution
-    beta = np.linalg.inv(X.T @ X) @ (X.T @ Y)
-    return beta
-
+# 3. get the regression
+# we defined the regression LRM_RSS in lrm_code.py and imported it here
 
 # ----------------------------------------------------------
 # 4. log returns
-
+# log returns are used because the original prices are not stationary.
 for ticker in pairs.keys():
-    df[f"{ticker}_return"] = np.log(df[ticker].astype(float)).diff()
-df_returns = df.dropna().copy()
+    prices[f"{ticker}_return"] = np.log(prices[ticker].astype(float)).diff()
+df_returns = prices.dropna().copy()
 
 
 # ----------------------------------------------------------
@@ -95,7 +72,7 @@ results = []
 
 for ticker, vol_col in pairs.items():
     Y = df_returns[f"{ticker}_return"].astype(float).values
-    X_vals = df_returns[vol_col].astype(float).values
+    X_vals = volumes[vol_col].astype(float).values[-len(Y):]
 
     beta = LRM_RSS([X_vals], Y)
     slope = beta[1]
@@ -116,7 +93,7 @@ sample_stock = list(pairs.keys())[0]
 sample_volume = pairs[sample_stock]
 sample_return = f"{sample_stock}_return"
 
-x = df_returns[sample_volume].astype(float).values
+x = volumes[sample_volume].astype(float).values[-len(df_returns):]
 y = df_returns[sample_return].astype(float).values
 
 beta_ex = LRM_RSS([x], y)
