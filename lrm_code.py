@@ -12,7 +12,7 @@ from tabulate import tabulate
 Reading new file containing all stocks/BTC/gold prices and volumes
 """
 
-df = pd.read_csv("datasets/stock_prices_raw.csv", sep=',')
+df = pd.read_csv("datasets/stock_prices_log.csv", sep=',')
 
 # Get column names for later use
 columns = df.columns
@@ -20,28 +20,12 @@ columns = df.columns
 # Time (all series now have the same length after dropna)
 time_index = np.arange(len(df))
 
- #%%
-"""
-Test plot for AMZN closing prices over time
-"""
-
-# Get closing prices for AMZN
-AMZN_cls = df["AMZN"].astype('float')
-
-# Plot a test figure for one example
-plt.figure(figsize=(11, 5))
-plt.plot(time_index, AMZN_cls)
-plt.title('AMZN closing price over time')
-plt.xlabel('Time index')
-plt.ylabel('Closing price')
-plt.show()
-
 # %%
 """
 Fitting LRM with a minimizing RSS method
 """
 
-Y = AMZN_cls
+Y = df["MMM"].astype('float')
 x = [time_index]
 
 
@@ -51,7 +35,7 @@ def LRM_RSS(x, Y):
     using the RSS method: Y = beta * X in matrix notation.
     Returns the parameter beta as a vector of parameter values.
     
-    :param x: nested list of feature arrays
+    :param x: list of features (which are also lists)
     :param Y: array-like of y values
     """
     # n is the number of features and m is the number of observations
@@ -77,102 +61,60 @@ beta = LRM_RSS(x, Y)
 
 # Make plot of the fit
 plt.figure(figsize=(11, 5))
-plt.plot(time_index, AMZN_cls, label="Observed")
+plt.plot(time_index, Y, label="Observed")
 plt.plot(time_index, beta[0] + beta[1] * x[0], label="Fitted LRM")
-plt.title('AMZN closing price over time with fitted LRM')
+plt.title('MMM closing price over time with fitted LRM')
 plt.xlabel('Time index')
 plt.ylabel('Closing price')
 plt.legend()
 plt.show()
 
+
 # %%
 """
-Bootstrap over time series and make confidence interval for our test
+Sliding window method
 """
 
 
-def bootstrap(Y, n=1000):
-    """
-    Does n bootstraps over set Y where each bootstrap has the same length as Y
+def rolling_mean(Y, size=100):
+    return Y.rolling(window=size).mean()
+
+
+def test_mean_stationarity(Y, window=100, boot_size=5000):
+    window_means = rolling_mean(Y, window).dropna()
+    x = [np.arange(len(window_means))]
+    beta = LRM_RSS(x, window_means)[1]
+
+    # Bootstrap
+    b_betas = []
+    for _ in range(boot_size):
+        bootstrap = pd.Series(np.random.choice(Y, len(Y), replace=True))
+        b_window_means = rolling_mean(bootstrap, window).dropna()
+        b_x = [np.arange(len(b_window_means))]
+        b_beta = LRM_RSS(b_x, b_window_means)[1]
+        b_betas.append(b_beta)
     
-    :param Y: Data set for bootstrap
-    :param n: Amount of bootstraps
-    """
-    length = len(Y)
-    all_boot_Y = []
-    for i in range(n):
-        all_boot_Y.append(np.random.choice(Y, size=length, replace=True))
-    return all_boot_Y
+    CI = [np.percentile(b_betas, 2.5), np.percentile(b_betas, 97.5)]
 
+    result = "Reject H0 (mean not stationary)" if beta < CI[0] or beta > CI[1] else "Do not reject H0 (mean stationary)"
 
-def CI(set):
-    """
-    Gives the confidence interval of a set of test values
-    
-    :param set: A list of test values
-    """
-    return [np.percentile(set, 2.5), np.percentile(set, 97.5)]
-
-
-# %%
-"""
-Bootstrap for LRM stationarity testing
-"""
-
-
-def stationarity_bootstrap(x, Y, n=1000):
-    boot_sets = bootstrap(Y)
-    boot_slopes = [LRM_RSS(x, boot)[1] for boot in boot_sets]
-    interval = CI(boot_slopes)
-    return boot_slopes, interval
-
-
-boot_slopes, interval = stationarity_bootstrap(x, Y)
-
-# Histogram of bootstrap slope distribution
-plt.figure(figsize=(11, 5))
-n_hist, bins, patches = plt.hist(boot_slopes, 40)
-plt.vlines(interval[0], 0, max(n_hist), 'r')
-plt.vlines(interval[1], 0, max(n_hist), 'r')
-plt.title("Bootstrap distribution of slopes AMZN closing prices")
-plt.xlabel("Slope")
-plt.ylabel("Frequency")
-plt.show()
-
-
-# %%
-"""
-Check slopes of all prices and volumes over the time
-"""
-
-
-def reject_or_not(value, interval):
-    if value < interval[0] or value > interval[1]:
-        return 'Reject'
-    else:
-        return "Don't Reject"
-
+    return beta, b_betas, CI, result
 
 all_slopes = []
 all_intervals = []
+reject_list = []
 
-# Skip first because this is the date column
+# Skip first column because it's the date column
 for col in columns[1:]:
-    data_Y = df[col].astype('float')
-    data_x = [np.arange(len(data_Y))]
-    
-    # Compute slope 4-decimal precision
-    slope = LRM_RSS(data_x, data_Y)[1]
-    slope = round(slope, 4)
-    
-    # Bootstrap interval 4-decimal precision
-    _, interval = stationarity_bootstrap(data_x, data_Y)
-    interval = tuple(round(x.item(), 4) for x in interval)
+    data_Y = df[col].astype(float)
 
-    all_slopes.append(slope)
-    all_intervals.append(interval)
+    beta, _, CI, result = test_mean_stationarity(data_Y)
 
-reject_list = [reject_or_not(all_slopes[i], all_intervals[i]) for i in range(len(all_slopes))]
+    CI = tuple(round(x.item(), 4) for x in CI)
+
+    all_slopes.append(beta)
+    all_intervals.append(CI)
+    reject_list.append(result)
 
 result_df = pd.DataFrame({
     "Ticker": columns[1:], 
@@ -181,4 +123,18 @@ result_df = pd.DataFrame({
     "Reject or Not": reject_list
 })
 
-print(tabulate(result_df, headers = 'keys', tablefmt = 'psql'))
+print(tabulate(result_df, headers="keys", tablefmt="psql"))
+
+
+# %%
+
+_, boot_slopes, interval, _ = test_mean_stationarity(Y)
+
+plt.figure(figsize=(11, 5))
+n_hist, bins, patches = plt.hist(boot_slopes, 40)
+plt.vlines(interval[0], 0, max(n_hist), 'r')
+plt.vlines(interval[1], 0, max(n_hist), 'r')
+plt.title("Bootstrap distribution of slopes test closing prices")
+plt.xlabel("Slope")
+plt.ylabel("Frequency")
+plt.show()
