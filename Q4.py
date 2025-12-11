@@ -1,16 +1,16 @@
 #RQ4: Does trading volume affect stock returns?
-Hypothesis:
-    H0: Volume has no effect on returns (beta = 0)
-    H1: Volume affects returns (beta =! 0)
+# Hypothesis:
+#     H0: Volume has no effect on returns (beta = 0)
+#     H1: Volume affects returns (beta =! 0)
 
-Steps:
-1)loads dataset "djia30_btc_gold.csv"
-2)cleans the data (drops NaNs + removes metadata row)
-4)matches price to volume for each stock (stock and stock.1)
-5)computes log returns
-6)runs the LRM 
-7) get slope values
-8) visualize and get plots 
+# Steps:
+# 1) loads dataset "djia30_btc_gold.csv"
+# 2) cleans the data (drops NaNs + removes metadata row)
+# 4) matches price to volume for each stock (stock and stock.1)
+# 5) computes log returns
+# 6) runs the LRM 
+# 7) get slope values
+# 8) visualize and get plots 
 
 import numpy as np
 import pandas as pd
