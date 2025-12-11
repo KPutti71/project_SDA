@@ -75,9 +75,14 @@ results = []
 for ticker, vol_col in pairs.items():
     Y = df_returns[f"{ticker}_return"].astype(float).values
     X_vals = volumes[vol_col].astype(float).values[-len(Y):]
+    
+#this line makes sure that there is variation  in the volume
+    if np.std(X_vals) == 0:
+        print(f"Skipping {ticker}: volume has no variation")
+        continue
 
-    beta = LRM_RSS([X_vals], Y)
-    slope = beta[1]
+beta = LRM_RSS([X_vals], Y)
+slope = beta[1]
 
     results.append([ticker, round(slope, 10)])
 
@@ -98,8 +103,11 @@ sample_return = f"{sample_stock}_return"
 x = volumes[sample_volume].astype(float).values[-len(df_returns):]
 y = df_returns[sample_return].astype(float).values
 
-beta_ex = LRM_RSS([x], y)
-line = beta_ex[0] + beta_ex[1] * x
+if np.std(x) == 0:
+    print(f"Cannot plot {sample_stock} because there is no variation in volume.")
+else:
+    beta_ex = LRM_RSS([x], y)
+    line = beta_ex[0] + beta_ex[1] * x
 
 plt.figure()
 plt.scatter(x, y, s=10, alpha=0.5, label="daily observations")
