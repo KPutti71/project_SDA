@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 #imported lrm function from the lrm_code.py
 from lrm_code import LRM_RSS          
+import matplotlib
+matplotlib.use("Agg")
 
 # ----------------------------------------------------------
 # 1. get and clean data
@@ -109,3 +111,4 @@ plt.ylabel("Log Return")
 plt.legend()
 plt.tight_layout()
 plt.show()
+plt.savefig("RQ4_plot.png")
