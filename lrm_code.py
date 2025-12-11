@@ -12,21 +12,16 @@ from tabulate import tabulate
 Reading new file containing all stocks/BTC/gold prices and volumes
 """
 
-df = pd.read_csv("datasets/stock_prices_log.csv", sep=',')
+df = pd.read_csv("datasets/stock_prices_raw.csv", sep=',')
 
-# Get column names for later use
+# Get column names and time index for later use
 columns = df.columns
-
-# Time (all series now have the same length after dropna)
 time_index = np.arange(len(df))
 
 # %%
 """
 Fitting LRM with a minimizing RSS method
 """
-
-Y = df["MMM"].astype('float')
-x = [time_index]
 
 
 def LRM_RSS(x, Y):
@@ -57,30 +52,20 @@ def LRM_RSS(x, Y):
     return beta
 
 
-beta = LRM_RSS(x, Y)
-
-# Make plot of the fit
-plt.figure(figsize=(11, 5))
-plt.plot(time_index, Y, label="Observed")
-plt.plot(time_index, beta[0] + beta[1] * x[0], label="Fitted LRM")
-plt.title('MMM closing price over time with fitted LRM')
-plt.xlabel('Time index')
-plt.ylabel('Closing price')
-plt.legend()
-plt.show()
-
-
 # %%
 """
 Sliding window method
 """
+
+Y = df["MMM"].astype('float')
+x = [time_index]
 
 
 def rolling_mean(Y, size=100):
     return Y.rolling(window=size).mean()
 
 
-def test_mean_stationarity(Y, window=100, boot_size=5000):
+def test_mean_stationarity(Y, window=30, boot_size=5000):
     window_means = rolling_mean(Y, window).dropna()
     x = [np.arange(len(window_means))]
     beta = LRM_RSS(x, window_means)[1]
@@ -95,8 +80,7 @@ def test_mean_stationarity(Y, window=100, boot_size=5000):
         b_betas.append(b_beta)
     
     CI = [np.percentile(b_betas, 2.5), np.percentile(b_betas, 97.5)]
-
-    result = "Reject H0 (mean not stationary)" if beta < CI[0] or beta > CI[1] else "Do not reject H0 (mean stationary)"
+    result = "Reject H0 (mean not stationary)" if beta < CI[0] or beta > CI[1] else "Do not reject H0 (mean likely stationary)"
 
     return beta, b_betas, CI, result
 
@@ -108,7 +92,7 @@ reject_list = []
 for col in columns[1:]:
     data_Y = df[col].astype(float)
 
-    beta, _, CI, result = test_mean_stationarity(data_Y)
+    beta, _, CI, result = test_mean_stationarity(data_Y, 300)
 
     CI = tuple(round(x.item(), 4) for x in CI)
 
@@ -128,13 +112,27 @@ print(tabulate(result_df, headers="keys", tablefmt="psql"))
 
 # %%
 
+beta = LRM_RSS(x, Y)
+
+# Make plot of the fit
+plt.figure(figsize=(11, 5))
+plt.plot(time_index, Y, label="Observed")
+plt.plot(time_index, beta[0] + beta[1] * x[0], label="Fitted LRM")
+plt.title('MMM closing price over time with fitted LRM')
+plt.xlabel('Time index')
+plt.ylabel('Closing price')
+plt.legend()
+plt.show()
+
+# %%
+
 _, boot_slopes, interval, _ = test_mean_stationarity(Y)
 
 plt.figure(figsize=(11, 5))
-n_hist, bins, patches = plt.hist(boot_slopes, 40)
+n_hist, bins, patches = plt.hist(boot_slopes, 300)
 plt.vlines(interval[0], 0, max(n_hist), 'r')
 plt.vlines(interval[1], 0, max(n_hist), 'r')
-plt.title("Bootstrap distribution of slopes test closing prices")
+plt.title("Bootstrap distribution of sliding mean slopes MMM closing prices")
 plt.xlabel("Slope")
 plt.ylabel("Frequency")
 plt.show()
