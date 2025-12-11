@@ -11,15 +11,7 @@ import matplotlib.pyplot as plt
 Reading new file containing all stocks/BTC/gold prices and volumes
 """
 
-full_file = pd.read_csv("datasets/djia30_btc_gold.csv", sep=',')
-
-# Remove the rows with NaN values since stock market is closed in weekend so we won't have all values
-df = full_file.dropna()
-
-# Remove row with indication of stock price or volume since we can identify with column names
-df_transpose = df.T
-df_transpose.pop(0)
-df = df_transpose.T
+df = pd.read_csv("datasets/stock_prices_raw.csv", sep=',')
 
 # Get column names for later use
 columns = df.columns
