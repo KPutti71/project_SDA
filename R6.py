@@ -7,22 +7,91 @@ This script:
 3. Computes daily log returns from log prices and constructs a 30-day rolling, annualised volatility measure for each ticker.
 4. Computes a 30-day rolling average of trading volume and takes its natural logarithm to reduce skew.
 5. Reshapes the data into a panel (Date, ticker, volatility, log volume).
-6. Implements Ordinary Least Squares (OLS) regression from scratch using NumPy to estimate the pooled linear model:
+6. Implements a linear regression model using the autoregression fitting approach (from autoregression_code.py)
+   to estimate the pooled linear model:
        vol_30d = alpha + beta * log_vol_avg_30d + error
     where:
         vol_30d          = 30-day rolling annualised volatility
         log_vol_avg_30d  = log 30-day average volume
+
+    The fitting approach uses a maximum likelihood estimation with random walk optimization.
+
     The key hypothesis for R6 is:
         H0: beta = 0  (trading volume has no effect on volatility)
         H1: beta ≠ 0  (trading volume affects volatility)
 
     The script computes coefficient estimates, standard errors, t-statistics, and R-squared for this model.
-7. Produces a scatter plot of volatility against log volume for a random subsample of observations, with the fitted OLS regression line overlaid, to visualise the volume-volatility relationship.
+7. Produces a scatter plot of volatility against log volume for a random subsample of observations, with the fitted regression line overlaid, to visualise the volume-volatility relationship.
 """
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+
+def loglikelihood_lrm(alpha, beta, sigma_y, sample):
+    """
+    Calculates the loglikelihood for a linear regression model
+
+    :param alpha: Model parameter
+    :param beta: Model parameter
+    :param sigma_y: Model parameter
+    :param sample: List of coupled data points
+    """
+    x = sample[:, 0]
+    y = sample[:, 1]
+    mu = alpha + beta * x
+
+    n = len(x)
+    return -n * np.log(np.sqrt(2 * np.pi) * sigma_y) - np.sum((y - mu) ** 2) / (
+        2 * sigma_y**2
+    )
+
+
+def fit_lrm(sample):
+    """
+    Fit a linear regression model to a given set of coupled datapoints, the method that is used for this fitting
+    starts of with 3 random parameters between 0 and 5 and then does a small step and checks if this improves our
+    loglikelihood. If it improves take new point as starting point.
+
+    :param sample: List of coupled data points
+    """
+
+    # initial guess
+    alpha = np.random.rand() * 5
+    beta = np.random.rand() * 5
+    sigma_y = np.random.rand() * 5
+
+    tries = 100  # tries per iteration
+    N = 100  # iterations
+
+    for n in range(N):
+
+        for t in range(tries):
+
+            # evaluate log-likelihood
+            log_L = loglikelihood_lrm(alpha, beta, sigma_y, sample)
+
+            # induce a small random step
+            delta = np.random.uniform(-0.5, 0.5, 3)
+
+            new_alpha = alpha + delta[0]
+            new_beta = beta + delta[1]
+            new_sigma = sigma_y + delta[2]
+
+            # make sure sigma > 0
+            if new_sigma <= 0:
+                continue
+
+            # evaluate new log-likelihood
+            new_log_L = loglikelihood_lrm(new_alpha, new_beta, new_sigma, sample)
+
+            # accept if improves likelihood
+            if new_log_L > log_L:
+                alpha, beta, sigma_y = new_alpha, new_beta, new_sigma
+                break
+
+    return alpha, beta, sigma_y
 
 
 def load_data(
@@ -81,49 +150,53 @@ def build_panel(
     return panel
 
 
-def ols(y: np.ndarray, X: np.ndarray) -> dict:
+def fit_regression_model(y: np.ndarray, x: np.ndarray) -> dict:
     """
-    Basic OLS implementation:
-        y: (n,) array
-        X: (n, k) array (first column should be ones for intercept)
-    Returns beta, standard errors, t-stats, R^2, n, k.
+    Fit regression model using the autoregression fitting approach from autoregression_code.py
+        y: (n,) array - dependent variable
+        x: (n,) array - independent variable
+    Returns alpha, beta, sigma_y, and computes R^2, n.
     """
-    y = y.reshape(-1, 1)  # (n, 1)
-    X = np.asarray(X)  # (n, k)
-    n, k = X.shape
+    # Create sample in the format expected by fit_lrm: column_stack([x, y])
+    sample = np.column_stack([x, y])
 
-    # Beta = (X'X)^(-1) X'y
-    XtX = X.T @ X
-    XtX_inv = np.linalg.inv(XtX)
-    Xty = X.T @ y
-    beta = XtX_inv @ Xty  # (k, 1)
+    # Fit the model using the autoregression approach
+    alpha, beta, sigma_y = fit_lrm(sample)
 
-    # Fitted values and residuals
-    y_hat = X @ beta  # (n, 1)
-    resid = y - y_hat  # (n, 1)
-
-    # Residual variance
-    rss = float(resid.T @ resid)
-    sigma2 = rss / (n - k)
-
-    # Var(beta) = sigma^2 (X'X)^(-1)
-    var_beta = sigma2 * XtX_inv
-    se_beta = np.sqrt(np.diag(var_beta)).reshape(-1, 1)
-
-    # t-statistics
-    t_stats = beta / se_beta
+    # Compute fitted values and residuals
+    y_hat = alpha + beta * x
+    resid = y - y_hat
 
     # R-squared
-    tss = float(((y - y.mean()) ** 2).sum())
+    rss = np.sum(resid**2)
+    tss = np.sum((y - y.mean()) ** 2)
     r2 = 1 - rss / tss
 
+    # Standard errors (approximate using sigma_y)
+    n = len(y)
+    x_mean = x.mean()
+    sxx = np.sum((x - x_mean) ** 2)
+
+    # SE for beta
+    se_beta = sigma_y / np.sqrt(sxx)
+
+    # SE for alpha
+    se_alpha = sigma_y * np.sqrt(1 / n + x_mean**2 / sxx)
+
+    # t-statistics
+    t_alpha = alpha / se_alpha
+    t_beta = beta / se_beta
+
     return {
-        "beta": beta.flatten(),  # [alpha, beta]
-        "se": se_beta.flatten(),
-        "t": t_stats.flatten(),
+        "alpha": alpha,
+        "beta": beta,
+        "sigma": sigma_y,
+        "se_alpha": se_alpha,
+        "se_beta": se_beta,
+        "t_alpha": t_alpha,
+        "t_beta": t_beta,
         "r2": r2,
         "n": n,
-        "k": k,
     }
 
 
@@ -168,20 +241,22 @@ def main() -> None:
     y = np.asarray(panel["vol_30d"].values)
     x = np.asarray(panel["log_vol_avg_30d"].values)
 
-    # Design matrix with intercept
-    X = np.column_stack([np.ones_like(x), np.asarray(x)])
+    # Fit regression using autoregression approach
+    results = fit_regression_model(y, x)
 
-    results = ols(y, X)
+    alpha_hat = results["alpha"]
+    beta_hat = results["beta"]
+    se_alpha = results["se_alpha"]
+    se_beta = results["se_beta"]
+    t_alpha = results["t_alpha"]
+    t_beta = results["t_beta"]
 
-    alpha_hat, beta_hat = results["beta"]
-    se_alpha, se_beta = results["se"]
-    t_alpha, t_beta = results["t"]
-
-    print("\nOLS results (pooled):")
+    print("\nRegression results (using autoregression model):")
     print(f"alpha = {alpha_hat:.6f} (SE = {se_alpha:.6f}, t = {t_alpha:.2f})")
     print(f"beta  = {beta_hat:.6f} (SE = {se_beta:.6f}, t = {t_beta:.2f})")
+    print(f"sigma = {results['sigma']:.6f}")
     print(f"R^2   = {results['r2']:.3f}")
-    print(f"n = {results['n']}, k = {results['k']}")
+    print(f"n = {results['n']}")
 
     plot_relationship(panel, alpha_hat, beta_hat)
 
