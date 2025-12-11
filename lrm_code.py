@@ -80,59 +80,68 @@ def test_mean_stationarity(Y, window=30, boot_size=5000):
         b_betas.append(b_beta)
     
     CI = [np.percentile(b_betas, 2.5), np.percentile(b_betas, 97.5)]
-    result = "Reject H0 (mean not stationary)" if beta < CI[0] or beta > CI[1] else "Do not reject H0 (mean likely stationary)"
+    result = "Reject H0 (mean not stationary)" \
+        if beta < CI[0] or beta > CI[1] \
+        else "Do not reject H0 (mean likely stationary)"
 
     return beta, b_betas, CI, result
 
-all_slopes = []
-all_intervals = []
-reject_list = []
 
-# Skip first column because it's the date column
-for col in columns[1:]:
-    data_Y = df[col].astype(float)
+def result_matrix():
+    all_slopes = []
+    all_intervals = []
+    reject_list = []
 
-    beta, _, CI, result = test_mean_stationarity(data_Y, 300)
+    # Skip first column because it's the date column
+    for col in columns[1:]:
+        data_Y = df[col].astype(float)
 
-    CI = tuple(round(x.item(), 4) for x in CI)
+        beta, _, CI, result = test_mean_stationarity(data_Y, 300)
 
-    all_slopes.append(beta)
-    all_intervals.append(CI)
-    reject_list.append(result)
+        CI = tuple(round(x.item(), 4) for x in CI)
 
-result_df = pd.DataFrame({
-    "Ticker": columns[1:], 
-    "Slope": all_slopes, 
-    "Bootstrap Slope CI": all_intervals,
-    "Reject or Not": reject_list
-})
+        all_slopes.append(beta)
+        all_intervals.append(CI)
+        reject_list.append(result)
 
-print(tabulate(result_df, headers="keys", tablefmt="psql"))
+    result_df = pd.DataFrame({
+        "Ticker": columns[1:], 
+        "Slope": all_slopes, 
+        "Bootstrap Slope CI": all_intervals,
+        "Reject or Not": reject_list
+    })
+
+    print(tabulate(result_df, headers="keys", tablefmt="psql"))
 
 
-# %%
-
-beta = LRM_RSS(x, Y)
-
-# Make plot of the fit
-plt.figure(figsize=(11, 5))
-plt.plot(time_index, Y, label="Observed")
-plt.plot(time_index, beta[0] + beta[1] * x[0], label="Fitted LRM")
-plt.title('MMM closing price over time with fitted LRM')
-plt.xlabel('Time index')
-plt.ylabel('Closing price')
-plt.legend()
-plt.show()
+# result_matrix()
 
 # %%
 
-_, boot_slopes, interval, _ = test_mean_stationarity(Y)
 
-plt.figure(figsize=(11, 5))
-n_hist, bins, patches = plt.hist(boot_slopes, 300)
-plt.vlines(interval[0], 0, max(n_hist), 'r')
-plt.vlines(interval[1], 0, max(n_hist), 'r')
-plt.title("Bootstrap distribution of sliding mean slopes MMM closing prices")
-plt.xlabel("Slope")
-plt.ylabel("Frequency")
-plt.show()
+def make_plots():
+
+    beta = LRM_RSS(x, Y)
+
+    # Make plot of the fit
+    plt.figure(figsize=(11, 5))
+    plt.plot(time_index, Y, label="Observed")
+    plt.plot(time_index, beta[0] + beta[1] * x[0], label="Fitted LRM")
+    plt.title('MMM closing price over time with fitted LRM')
+    plt.xlabel('Time index')
+    plt.ylabel('Closing price')
+    plt.legend()
+    plt.show()
+
+    _, boot_slopes, interval, _ = test_mean_stationarity(Y)
+
+    plt.figure(figsize=(11, 5))
+    n_hist, bins, patches = plt.hist(boot_slopes, 300)
+    plt.vlines(interval[0], 0, max(n_hist), 'r')
+    plt.vlines(interval[1], 0, max(n_hist), 'r')
+    plt.title("Bootstrap distribution of sliding mean slopes MMM closing prices")
+    plt.xlabel("Slope")
+    plt.ylabel("Frequency")
+    plt.show()
+
+# make_plots()
