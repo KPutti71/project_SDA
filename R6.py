@@ -29,69 +29,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def loglikelihood_lrm(alpha, beta, sigma_y, sample):
-    """
-    Calculates the loglikelihood for a linear regression model
+import sys
+import os
+from unittest.mock import patch
 
-    :param alpha: Model parameter
-    :param beta: Model parameter
-    :param sigma_y: Model parameter
-    :param sample: List of coupled data points
-    """
-    x = sample[:, 0]
-    y = sample[:, 1]
-    mu = alpha + beta * x
-
-    n = len(x)
-    return -n * np.log(np.sqrt(2 * np.pi) * sigma_y) - np.sum((y - mu) ** 2) / (
-        2 * sigma_y**2
-    )
-
-
-def fit_lrm(sample):
-    """
-    Fit a linear regression model to a given set of coupled datapoints, the method that is used for this fitting
-    starts of with 3 random parameters between 0 and 5 and then does a small step and checks if this improves our
-    loglikelihood. If it improves take new point as starting point.
-
-    :param sample: List of coupled data points
-    """
-
-    # initial guess
-    alpha = np.random.rand() * 5
-    beta = np.random.rand() * 5
-    sigma_y = np.random.rand() * 5
-
-    tries = 100  # tries per iteration
-    N = 100  # iterations
-
-    for n in range(N):
-
-        for t in range(tries):
-
-            # evaluate log-likelihood
-            log_L = loglikelihood_lrm(alpha, beta, sigma_y, sample)
-
-            # induce a small random step
-            delta = np.random.uniform(-0.5, 0.5, 3)
-
-            new_alpha = alpha + delta[0]
-            new_beta = beta + delta[1]
-            new_sigma = sigma_y + delta[2]
-
-            # make sure sigma > 0
-            if new_sigma <= 0:
-                continue
-
-            # evaluate new log-likelihood
-            new_log_L = loglikelihood_lrm(new_alpha, new_beta, new_sigma, sample)
-
-            # accept if improves likelihood
-            if new_log_L > log_L:
-                alpha, beta, sigma_y = new_alpha, new_beta, new_sigma
-                break
-
-    return alpha, beta, sigma_y
+with patch('matplotlib.pyplot.show'), open(os.devnull, 'w') as devnull:
+    original_stdout = sys.stdout
+    try:
+        sys.stdout = devnull
+        import autoregression_code as ar_code
+        import lrm_code
+    except Exception as e:
+        sys.stdout = original_stdout
+        print(f"Warning: Failed to import shared modules: {e}")
+        raise e
+    finally:
+        sys.stdout = original_stdout
 
 
 def load_data(
@@ -161,7 +114,7 @@ def fit_regression_model(y: np.ndarray, x: np.ndarray) -> dict:
     sample = np.column_stack([x, y])
 
     # Fit the model using the autoregression approach
-    alpha, beta, sigma_y = fit_lrm(sample)
+    alpha, beta, sigma_y = ar_code.fit_lrm(sample)
 
     # Compute fitted values and residuals
     y_hat = alpha + beta * x
@@ -224,6 +177,31 @@ def plot_relationship(
     plt.tight_layout()
     plt.show()
 
+def print_beta_interpretation(beta: float) -> None:
+    """
+    Interpret beta in the semi-log model:
+        vol_30d = alpha + beta * log_vol_avg_30d + error
+
+    For a p% increase in volume:
+        delta_logV = ln(1 + p/100)
+        delta_vol  = beta * delta_logV
+    For a kx increase in volume:
+        delta_logV = ln(k)
+        delta_vol  = beta * ln(k)
+    """
+    pct_changes = [1, 10, 50]
+    multipliers = [2]
+
+    print("\nInterpretation of beta (semi-log effect sizes):")
+    for p in pct_changes:
+        dlogv = np.log(1.0 + p / 100.0)
+        dvol = beta * dlogv
+        print(f"If 30-day avg volume is {p}% higher, predicted vol_30d increases by {dvol:.6f}.")
+
+    for k in multipliers:
+        dlogv = np.log(float(k))
+        dvol = beta * dlogv
+        print(f"If 30-day avg volume is multiplied by {k}x, predicted vol_30d increases by {dvol:.6f}.")
 
 def main() -> None:
     prices, volumes, tickers = load_data(
@@ -258,6 +236,7 @@ def main() -> None:
     print(f"R^2   = {results['r2']:.3f}")
     print(f"n = {results['n']}")
 
+    print_beta_interpretation(beta_hat)
     plot_relationship(panel, alpha_hat, beta_hat)
 
 
