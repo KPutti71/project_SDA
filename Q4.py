@@ -76,13 +76,13 @@ for ticker, vol_col in pairs.items():
     Y = df_returns[f"{ticker}_return"].astype(float).values
     X_vals = volumes[vol_col].astype(float).values[-len(Y):]
     
-#this line makes sure that there is variation  in the volume
+    #this line makes sure that there is variation  in the volume
     if np.std(X_vals) == 0:
         print(f"Skipping {ticker}: volume has no variation")
         continue
 
-beta = LRM_RSS([X_vals], Y)
-slope = beta[1]
+    beta = LRM_RSS([X_vals], Y)
+    slope = beta[1]
 
     results.append([ticker, round(slope, 10)])
 
@@ -109,14 +109,14 @@ else:
     beta_ex = LRM_RSS([x], y)
     line = beta_ex[0] + beta_ex[1] * x
 
-plt.figure()
-plt.scatter(x, y, s=10, alpha=0.5, label="daily observations")
-plt.plot(x, line, color="red", linewidth=2, label="Fitted line")
+    plt.figure()
+    plt.scatter(x, y, s=10, alpha=0.5, label="daily observations")
+    plt.plot(x, line, color="red", linewidth=2, label="Fitted line")
 
-plt.title(f"Q4: Volume vs Return for {sample_stock}")
-plt.xlabel("Volume")
-plt.ylabel("Log Return")
-plt.legend()
-plt.tight_layout()
-plt.show()
-plt.savefig("RQ4_plot.png")
+    plt.title(f"Q4: Volume vs Return for {sample_stock}")
+    plt.xlabel("Volume")
+    plt.ylabel("Log Return")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("RQ4_plot.png")
+    plt.show()
