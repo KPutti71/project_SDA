@@ -74,8 +74,10 @@ results = []
 
 for ticker, vol_col in pairs.items():
     Y = df_returns[f"{ticker}_return"].astype(float).values
-    X_vals = volumes[vol_col].astype(float).values[-len(Y):]
-    
+
+    # use log(volume) instead of raw volume
+    X_vals = np.log(volumes[vol_col].astype(float).values[-len(Y):])
+
     #this line makes sure that there is variation  in the volume
     if np.std(X_vals) == 0:
         print(f"Skipping {ticker}: volume has no variation")
@@ -84,9 +86,20 @@ for ticker, vol_col in pairs.items():
     beta = LRM_RSS([X_vals], Y)
     slope = beta[1]
 
-    results.append([ticker, round(slope, 10)])
+    # compute t-statistic for beta
+    residuals = Y - (beta[0] + beta[1] * X_vals)
+    sigma2 = np.sum(residuals**2) / (len(Y) - 2)
+    X = np.column_stack([np.ones(len(X_vals)), X_vals])
+    var_beta = sigma2 * np.linalg.inv(X.T @ X)
+    se_beta = np.sqrt(var_beta[1, 1])
+    t_stat = slope / se_beta
 
-results_df = pd.DataFrame(results, columns=["Ticker", "Slope (Volume → Return)"])
+    results.append([ticker, round(slope, 6), round(t_stat, 2)])
+
+results_df = pd.DataFrame(
+    results,
+    columns=["Ticker", "Slope (log Volume → Return)", "t-stat"]
+)
 
 print("Q4: Does volume haeve an effect on daily log returns")
 print(tabulate(results_df, headers="keys", tablefmt="psql"))
@@ -100,7 +113,7 @@ sample_stock = list(pairs.keys())[0]
 sample_volume = pairs[sample_stock]
 sample_return = f"{sample_stock}_return"
 
-x = volumes[sample_volume].astype(float).values[-len(df_returns):]
+x = np.log(volumes[sample_volume].astype(float).values[-len(df_returns):])
 y = df_returns[sample_return].astype(float).values
 
 if np.std(x) == 0:
@@ -114,7 +127,7 @@ else:
     plt.plot(x, line, color="red", linewidth=2, label="Fitted line")
 
     plt.title(f"Q4: Volume vs Return for {sample_stock}")
-    plt.xlabel("Volume")
+    plt.xlabel("Log Volume")
     plt.ylabel("Log Return")
     plt.legend()
     plt.tight_layout()
