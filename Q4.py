@@ -1,7 +1,10 @@
 #RQ4: Does trading volume affect stock returns?
+
 # Hypothesis:
-#     H0: Volume has no effect on returns (beta = 0)
-#     H1: Volume affects returns (beta =! 0)
+#     H0: Volume has no effect on stock returns (beta = 0)
+#     H1: Volume affects  stock returns (beta =! 0)
+
+# we use log volumes to be able to interpret beta better and to reduce skewness
 
 # Steps:
 # 1) loads datasets ("stock_prices_raw.csv" and "stock_volumes_raw.csv")
@@ -10,7 +13,8 @@
 # 5) computes log returns
 # 6) runs the LRM 
 # 7) get slope values
-# 8) visualize and get plots 
+# 8) get t-stats
+# 9) visualize and get plots 
 
 import numpy as np
 import pandas as pd
@@ -75,7 +79,7 @@ results = []
 for ticker, vol_col in pairs.items():
     Y = df_returns[f"{ticker}_return"].astype(float).values
 
-    # use log(volume) instead of raw volume
+    #we use log volume instead of volume because volume values are very large and highly skewed
     X_vals = np.log(volumes[vol_col].astype(float).values[-len(Y):])
 
     #this line makes sure that there is variation  in the volume
@@ -86,7 +90,7 @@ for ticker, vol_col in pairs.items():
     beta = LRM_RSS([X_vals], Y)
     slope = beta[1]
 
-    # compute t-statistic for beta
+    # compute t stats for beta
     residuals = Y - (beta[0] + beta[1] * X_vals)
     sigma2 = np.sum(residuals**2) / (len(Y) - 2)
     X = np.column_stack([np.ones(len(X_vals)), X_vals])
