@@ -62,7 +62,7 @@ x = [time_index]
 
 
 def rolling_mean(Y, size=100):
-    return Y.rolling(window=size).mean()
+    return Y.rolling(window=size).mean().dropna()
 
 
 def test_mean_stationarity(Y, window=30, boot_size=5000):
@@ -96,7 +96,7 @@ def result_matrix():
     for col in columns[1:]:
         data_Y = df[col].astype(float)
 
-        beta, _, CI, result = test_mean_stationarity(data_Y, 300)
+        beta, _, CI, result = test_mean_stationarity(data_Y, 30)
 
         CI = tuple(round(x.item(), 4) for x in CI)
 
@@ -119,24 +119,45 @@ def result_matrix():
 # %%
 
 
-def make_plots():
+def plot_lrm_fit(x, Y):
 
-    beta = LRM_RSS(x, Y)
+    # Fit LRM on data
+    alpha = LRM_RSS(x, Y)
+
+    # First do rolling mean and then fit
+    Z = rolling_mean(Y, 30)
+    x2 = [np.arange(len(Z))]
+    beta = LRM_RSS(x2, Z)
+
+    plt.figure(figsize=(11, 10))
 
     # Make plot of the fit
-    plt.figure(figsize=(11, 5))
-    plt.plot(time_index, Y, label="Observed")
-    plt.plot(time_index, beta[0] + beta[1] * x[0], label="Fitted LRM")
+    plt.subplot(2, 1, 1)
+    plt.plot(x[0], Y, label="Observed")
+    plt.plot(x[0], alpha[0] + alpha[1] * x[0], label=f"Fitted LRM alpha={alpha[0]:.2f}, beta={alpha[1]:.6f}", c='r')
     plt.title('MMM closing price over time with fitted LRM')
     plt.xlabel('Time index')
     plt.ylabel('Closing price')
     plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(x2[0], Z, label="Mean")
+    plt.plot(x2[0], beta[0] + beta[1] * x2[0], label=f"Fitted LRM alpha={beta[0]:.2f}, beta={beta[1]:.6f}", c='r')
+    plt.title('MMM mean closing price over time with fitted LRM')
+    plt.xlabel('Time index')
+    plt.ylabel('Mean closing price')
+    plt.legend()
+    plt.show()
     plt.show()
 
-    _, boot_slopes, interval, _ = test_mean_stationarity(Y)
+
+def plot_sliding_window(x,Y):
+
+    Z = rolling_mean(Y, 30)
+    _, boot_slopes, interval, _ = test_mean_stationarity(Z)
 
     plt.figure(figsize=(11, 5))
-    n_hist, bins, patches = plt.hist(boot_slopes, 300)
+    n_hist, bins, patches = plt.hist(boot_slopes, 100)
     plt.vlines(interval[0], 0, max(n_hist), 'r')
     plt.vlines(interval[1], 0, max(n_hist), 'r')
     plt.title("Bootstrap distribution of sliding mean slopes MMM closing prices")
@@ -144,4 +165,7 @@ def make_plots():
     plt.ylabel("Frequency")
     plt.show()
 
-# make_plots()
+
+plot_lrm_fit(x,Y)
+
+plot_sliding_window(x,Y)
