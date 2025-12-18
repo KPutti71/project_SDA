@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 class PearsonCoefficient:
@@ -184,6 +185,47 @@ class PearsonCoefficient:
             btc_delay  = best_corr_btc[stock]
             print(f'Correlation delay between {stock} and gold: {gold_delay}, (r={corr_shifts_gld[stock][gold_delay-1]})')
             print(f'Correlation delay between {stock} and bitcoin: {btc_delay}, (r={corr_shifts_btc[stock][btc_delay-1]})')
+    
+    def dataframes(self, filename: str = 'datasets/stock_prices_log.csv'):
+        pearson_r_gold, pearson_r_btc = self.calculate_pearsonr(filename)
+        corr_shifts_btc, corr_shifts_gld, best_corr_btc, best_corr_gld = self.correlation_delay(filename)
+
+        # ---------
+        # DataFrame 1: Pearson correlation strength
+        # ---------
+        df_correlations = (
+            pd.DataFrame({
+                'pearson_btc': pearson_r_btc,
+                'pearson_gold': pearson_r_gold
+            })
+            .reset_index()
+            .rename(columns={'index': 'asset'})
+        )
+
+        # ---------
+        # DataFrame 2: Best correlation delays + r-values
+        # ---------
+        rows = []
+
+        for asset in best_corr_btc.keys():
+            btc_delay = best_corr_btc[asset]
+            gold_delay = best_corr_gld[asset]
+
+            rows.append({
+                'asset': asset,
+                'btc_delay': btc_delay,
+                'btc_r_at_delay': corr_shifts_btc[asset][btc_delay - 1],
+                'gold_delay': gold_delay,
+                'gold_r_at_delay': corr_shifts_gld[asset][gold_delay - 1]
+            })
+
+        df_delays = pd.DataFrame(rows)
+
+        return df_correlations, df_delays
 
 pr = PearsonCoefficient()
-pr.pearson_r_and_delays('datasets/stock_prices_log.csv')
+# pr.pearson_r_and_delays('datasets/stock_prices_log.csv')
+df_corr, df_delay = pr.dataframes('datasets/stock_prices_log.csv')
+
+df_corr.to_csv("correlation_strength.csv", index=False)
+df_delay.to_csv("correlation_delays.csv", index=False)
