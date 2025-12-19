@@ -117,15 +117,18 @@ def multi_path_forecast(data, lagged_sample, steps=30, num_param_sets=25, iterat
     """
     param_list = [fit_lrm(lagged_sample) for _ in range(num_param_sets)]
 
-    all_paths = np.zeros((num_param_sets, iterations, steps))
+    num_paths = num_param_sets * iterations
+    all_paths = np.zeros((num_paths, steps))
 
-    for k, (alpha, beta, sigma) in enumerate(param_list):
-        for j in range(iterations):
-            all_paths[k, j] = single_path_forecast(
+    idex = 0
+    for alpha, beta, sigma in param_list:
+        for _ in range(iterations):
+            all_paths[idex] = single_path_forecast(
                 alpha, beta, sigma, data[-1], steps
             )
+            idex += 1
 
-    return all_paths.reshape(-1, steps)
+    return all_paths
 
 
 # ================= Plotting =================
