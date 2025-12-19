@@ -123,9 +123,7 @@ def multi_path_forecast(data, lagged_sample, steps=30, num_param_sets=25, iterat
     idex = 0
     for alpha, beta, sigma in param_list:
         for _ in range(iterations):
-            all_paths[idex] = single_path_forecast(
-                alpha, beta, sigma, data[-1], steps
-            )
+            all_paths[idex] = single_path_forecast(alpha, beta, sigma, data[-1], steps)
             idex += 1
 
     return all_paths
@@ -166,7 +164,7 @@ def plot_forecast_paths(time, data, forecast_paths):
     plt.plot(new_time, ci_low, "r", label="95% CI")
     plt.plot(new_time, ci_high, "r")
 
-    plt.title("Forecast Paths with Parameter Uncertainty")
+    plt.title("All 2500 prediction paths")
     plt.xlabel("Time")
     plt.ylabel("Value")
     plt.legend()
