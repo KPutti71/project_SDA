@@ -135,5 +135,5 @@ else:
     plt.ylabel("Log Return")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("RQ4_plot.png")
+    plt.savefig("results/RQ4_plot.png")
     plt.show()
