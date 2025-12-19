@@ -175,7 +175,7 @@ def main():
 
     result_matrix()
     plot_lrm_fit(x, Y)
-    plot_sliding_window(Y)
+    plot_sliding_window(x, Y)
 
 
 if __name__ == "__main__":
