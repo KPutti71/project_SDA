@@ -1,16 +1,26 @@
 """
-Imported packages for the code
+Stationarity Testing via Sliding Window and Bootstrap
+
+This module:
+1. Implements a linear regression model (OLS via RSS minimization)
+2. Computes rolling means
+3. Performs bootstrap-based hypothesis testing for mean stationarity
+4. Produces tabular results and visualizations
+
+Datasets used:
+- datasets/stock_prices_raw.csv
+- datasets/stock_prices_log.csv
 """
+
+# ================= Imports =================
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 
-# %%
-"""
-Reading new file containing all stocks/BTC/gold prices and volumes
-"""
+
+# ================= Data Loading =================
 
 df = pd.read_csv("datasets/stock_prices_raw.csv", sep=',')
 
@@ -18,11 +28,8 @@ df = pd.read_csv("datasets/stock_prices_raw.csv", sep=',')
 columns = df.columns
 time_index = np.arange(len(df))
 
-# %%
-"""
-Fitting LRM with a minimizing RSS method
-"""
 
+# ================= Linear Regression (OLS) =================
 
 def LRM_RSS(x, Y):
     """
@@ -52,18 +59,13 @@ def LRM_RSS(x, Y):
     return beta
 
 
-# %%
-"""
-Sliding window method
-"""
-
-Y = df["MMM"].astype('float')
-x = [time_index]
-
+# ================= Rolling Mean =================
 
 def rolling_mean(Y, size=100):
     return Y.rolling(window=size).mean().dropna()
 
+
+# ================= Stationarity Test =================
 
 def test_mean_stationarity(Y, window=30, boot_size=5000):
     window_means = rolling_mean(Y, window).dropna()
@@ -86,6 +88,8 @@ def test_mean_stationarity(Y, window=30, boot_size=5000):
 
     return beta, b_betas, CI, result
 
+
+# ================= Result Table =================
 
 def result_matrix():
     all_slopes = []
@@ -114,10 +118,7 @@ def result_matrix():
     print(tabulate(result_df, headers="keys", tablefmt="psql"))
 
 
-# result_matrix()
-
-# %%
-
+# ================= Plotting =================
 
 def plot_lrm_fit(x, Y):
 
@@ -166,6 +167,16 @@ def plot_sliding_window(x,Y):
     plt.show()
 
 
-plot_lrm_fit(x,Y)
+# ================= Main Execution =================
 
-plot_sliding_window(x,Y)
+def main():
+    Y = df["MMM"].astype(float)
+    x = [time_index]
+
+    result_matrix()
+    plot_lrm_fit(x, Y)
+    plot_sliding_window(Y)
+
+
+if __name__ == "__main__":
+    main()
