@@ -1,13 +1,33 @@
+"""
+Pearson Correlation Analysis with Bitcoin and Gold
+
+This module:
+1. Reads log-transformed stock price data
+2. Computes Pearson correlation coefficients manually
+3. Computes correlation delays (time shifts)
+4. Returns results as dictionaries and DataFrames
+5. Produces visualizations of correlations and delays
+
+Dataset used:
+- datasets/stock_prices_log.csv
+"""
+
+# ================= Imports =================
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
+# ================= Pearson Correlation Class =================
 
 class PearsonCoefficient:
 
     def __init__(self):
         self.stocknames = None
         self.dates      = []
+
+    # ================= Data Loading =================
 
     def read_data(self, filename : str = 'datasets/stock_prices_log.csv'):
         """
@@ -34,6 +54,9 @@ class PearsonCoefficient:
         self.btc_prices  = self.price_per_stock['BTC-USD']
         self.gold_prices = self.price_per_stock['GLD']
     
+
+    # ================= Averages =================
+    
     def calculate_averages(self):
         """
         Calculates the avarage stock prices over the whole series
@@ -48,6 +71,8 @@ class PearsonCoefficient:
             if stock != 'BTC-USD' and stock != 'GLD':
                 self.averages[stock] = sum(self.price_per_stock[stock]) / len(self.price_per_stock[stock])
 
+
+    # ================= Residuals & Variances =================
 
     def calculate_res_vars(self):
         """
@@ -74,6 +99,9 @@ class PearsonCoefficient:
                 self.gold_covs[stock] += res_gold * stock_res
                 self.btc_covs[stock]  += res_btc  * stock_res
     
+
+    # ================= Pearson Correlation =================
+
     def pearsonr_final_step(self):
         """
         With the given variances and covariances this function calculates the pearson correlation coefficient between
@@ -109,6 +137,9 @@ class PearsonCoefficient:
         self.calculate_res_vars()
         pearson_r_btc, pearson_r_gold = self.pearsonr_final_step()
         return pearson_r_btc, pearson_r_gold
+    
+
+    # ================= Correlation Delays =================
 
     def corr_shifts(self):
         """
@@ -187,6 +218,9 @@ class PearsonCoefficient:
             print(f'Correlation delay between {stock} and gold: {gold_delay}, (r={corr_shifts_gld[stock][gold_delay-1]})')
             print(f'Correlation delay between {stock} and bitcoin: {btc_delay}, (r={corr_shifts_btc[stock][btc_delay-1]})')
     
+
+    # ================= DataFrames =================
+
     def dataframes(self, filename: str = 'datasets/stock_prices_log.csv'):
         pearson_r_btc, pearson_r_gold = self.calculate_pearsonr(filename)
         corr_shifts_btc, corr_shifts_gld, best_corr_btc, best_corr_gld = self.correlation_delay(filename)
@@ -220,76 +254,67 @@ class PearsonCoefficient:
 
         return df_correlations, df_delays
 
-pr = PearsonCoefficient()
-# pr.pearson_r_and_delays('datasets/stock_prices_log.csv')
-df_corr, df_delay = pr.dataframes('datasets/stock_prices_log.csv')
+# ================= Main Execution =================
 
-"""
-Make plot of results of both bitcoin and gold PCC
-"""
-# plt.hist(df_corr['pearson_btc'],15)
-# plt.title('Bitcoin vs companies PCC distribution')
-# plt.xlabel('Pearson Correlation coefficient')
-# plt.ylabel('Frequency')
-# plt.show()
+def main():
+    pr = PearsonCoefficient()
+    df_corr, df_delay = pr.dataframes("datasets/stock_prices_log.csv")
 
-# plt.hist(df_corr['pearson_gold'],15)
-# plt.title('Gold vs companies PCC distribution')
-# plt.xlabel('Pearson Correlation Coefficient')
-# plt.ylabel('Frequency')
-# plt.show()
+    # Bitcoin/Gold correlation plots ----
+    plt.hist(df_corr['pearson_btc'],15) 
+    plt.title('Bitcoin vs companies PCC distribution') 
+    plt.xlabel('Pearson Correlation coefficient') 
+    plt.ylabel('Frequency') 
+    plt.show() 
 
-"""
-Make plot of results for delayed bitcoin PCC
-"""
-# Filter out extreme delay outliers
-df_delay_filt = df_delay[df_delay['btc_delay'] <= 1500]
+    plt.hist(df_corr['pearson_gold'],15) 
+    plt.title('Gold vs companies PCC distribution') 
+    plt.xlabel('Pearson Correlation Coefficient') 
+    plt.ylabel('Frequency') 
+    plt.show()
 
-plt.figure(figsize=(13,5))
+    # ---- Bitcoin delay plots ----
+    df_delay_filt = df_delay[df_delay["btc_delay"] <= 1000]
 
-plt.subplot(1,2,1)
-plt.hist(df_delay_filt['btc_delay'], 20)
-plt.title('Bitcoin delay distribution (≤ 1000 days)')
-plt.xlabel('Delay (days)')
-plt.ylabel('Frequency')
+    plt.figure(figsize=(13, 5))
+    plt.subplot(1, 2, 1)
+    plt.hist(df_delay_filt["btc_delay"], 20)
+    plt.title("Bitcoin delay distribution (≤ 1000 days)")
+    plt.xlabel("Delay (days)")
+    plt.ylabel("Frequency")
 
-plt.subplot(1,2,2)
-plt.hist(df_delay_filt['btc_r_at_delay'], 20)
-plt.title('Bitcoin delayed PCC distribution')
-plt.xlabel('Pearson Correlation Coefficient')
-plt.ylabel('Frequency')
+    plt.subplot(1, 2, 2)
+    plt.hist(df_delay_filt["btc_r_at_delay"], 20)
+    plt.title("Bitcoin delayed PCC distribution")
+    plt.xlabel("Pearson Correlation Coefficient")
+    plt.ylabel("Frequency")
+    plt.tight_layout()
+    plt.show()
 
-plt.tight_layout()
-plt.show()
+    # ---- Gold delay plots ----
+    df_delay_gold_filt = df_delay[
+        (df_delay["gold_delay"] <= 1000)
+        & (df_delay["gold_r_at_delay"] <= 0.8)
+    ]
 
-"""
-Make plot of results for delayed gold PCC
-"""
-# Filter gold delay outliers and extreme PCC outlier
-df_delay_gold_filt = df_delay[
-    (df_delay['gold_delay'] <= 1000) &
-    (df_delay['gold_r_at_delay'] <= 0.8)
-]
+    plt.figure(figsize=(13, 5))
+    plt.subplot(1, 2, 1)
+    plt.hist(df_delay_gold_filt["gold_delay"], 20)
+    plt.title("Gold delay distribution (≤ 1000 days)")
+    plt.xlabel("Delay (days)")
+    plt.ylabel("Frequency")
 
-plt.figure(figsize=(13,5))
+    plt.subplot(1, 2, 2)
+    plt.hist(df_delay_gold_filt["gold_r_at_delay"], 20)
+    plt.title("Gold delayed PCC distribution (r ≤ 0.8)")
+    plt.xlabel("Pearson Correlation Coefficient")
+    plt.ylabel("Frequency")
+    plt.tight_layout()
+    plt.show()
 
-plt.subplot(1,2,1)
-plt.hist(df_delay_gold_filt['gold_delay'], 20)
-plt.title('Gold delay distribution (≤ 1000 days)')
-plt.xlabel('Delay (days)')
-plt.ylabel('Frequency')
+    df_corr.to_csv("results/correlation_strength.csv", index=False)
+    df_delay.to_csv("results/correlation_delays.csv", index=False)
 
-plt.subplot(1,2,2)
-plt.hist(df_delay_gold_filt['gold_r_at_delay'], 20)
-plt.title('Gold delayed PCC distribution (r ≤ 0.8)')
-plt.xlabel('Pearson Correlation Coefficient')
-plt.ylabel('Frequency')
 
-plt.tight_layout()
-plt.show()
-
-"""
-Save results as csv file
-"""
-# df_corr.to_csv("correlation_strength.csv", index=False)
-# df_delay.to_csv("correlation_delays.csv", index=False)
+if __name__ == "__main__":
+    main()

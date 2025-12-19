@@ -1,4 +1,4 @@
-asset,btc_delay,btc_r_at_delay,gold_delay,gold_r_at_delay
+stock,btc_delay,btc_r_at_delay,gold_delay,gold_r_at_delay
 AAPL,21,0.19095481432979175,124,0.04733510851680336
 AMGN,8,0.10543280305195701,7,0.02696247969942846
 AMZN,1,0.17118718351958423,124,0.06777957000322825
